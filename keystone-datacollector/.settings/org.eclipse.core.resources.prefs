@@ -1,4 +1,5 @@
 eclipse.preferences.version=1
+encoding//src/collector-rk/wmcloud/wind_collector.py=utf-8
 encoding//src/wmcloud/cleaner.py=utf-8
 encoding//src/wmcloud/compare.py=utf-8
 encoding//src/wmcloud/jy_collector.py=utf-8
