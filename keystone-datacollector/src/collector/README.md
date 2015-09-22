@@ -1,2 +1,0 @@
-# collector
-data collector
