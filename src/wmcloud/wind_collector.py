@@ -13,6 +13,9 @@ import json
 import itertools
 from WindPy import w as WindClient
 import numpy as np
+import csv
+import sys
+import datetime
 
 # block name in configure file
 MYSQL_SETTING = 'mysql'
@@ -47,6 +50,7 @@ class WindCollector(BaseDayCollector):
         self.tableList = None
         self.mongoSetting = None
         self.mysqlSetting = None
+        self.localSetting = None
 
         # instance variable used by JYCollector
         self.windClient = None
@@ -87,8 +91,9 @@ class WindCollector(BaseDayCollector):
             if mongoSetting[key].isdigit():
                 mongoSetting[key] = int(mongoSetting[key])
         self.mongoSetting = mongoSetting
-
-
+        
+        # local setting
+        self.localfolder = self.config.get(LOCAL_SETTING, 'localfolder')
 
     def reconnect(self):
         """reconnect"""
@@ -137,12 +142,13 @@ class WindCollector(BaseDayCollector):
             data.columns = result.Fields
             #特殊逻辑，万德api wsd函数返回的Data没有日期也没有股票代号，需要自己引入
             if tablename == "marketDay":
-                data = data.assign(**{'TIME': np.array(result.Times)[data.index]})
+                arr=np.array(result.Times)                
+                data = data.assign(**{'TIME': arr[data.index]})
                 data = data.assign(**{'secID':result.Codes[0]})
                 data = data.assign(**{'wind_code':result.Codes[0].split('.')[0]})
             data = self.__FilterData(data, primaryKey)
             if not data.empty and saveToDB:
-                self.saveToMysql(data, db, table)
+                self.saveToLocal(data, secID)
         else:
             errorMessage = 'WindApiError: result code = %d, result msg = %s, fun = %s' %(result.ErrorCode, str(result.Data), fun)
             raise WindApiError(errorMessage)
@@ -188,8 +194,17 @@ class WindCollector(BaseDayCollector):
     def saveToMysql(self, data, dbName, tableName):
         """saving data to mysql"""
         data.to_sql(tableName, self.mysqlClient, flavor = 'mysql', if_exists = 'append', index=None)
+        
+    def saveToLocal(self, data,secId):
+        """saving data to mysql"""        
+        filefolder=self.localfolder+secId+'\\'
+        filepath=self.localfolder+secId+'.csv'
+        fieldnames = ['pre_close','open','high','low','close','volume','amt','dealnum','TIME','secID','wind_code']
+        csv_file = open(filepath, 'wb') 
+        data.to_csv(filepath)
+  
 
 if __name__ == "__main__":
     wind = WindCollector('./conf/wind.conf')
-    wind.updateData('19900101','19991231')
+    wind.updateData('20150901','')
 
