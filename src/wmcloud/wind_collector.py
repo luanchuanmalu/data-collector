@@ -16,6 +16,7 @@ import numpy as np
 import csv
 import sys
 import datetime
+from nt import mkdir
 
 # block name in configure file
 MYSQL_SETTING = 'mysql'
@@ -184,6 +185,18 @@ class WindCollector(BaseDayCollector):
         if primaryKey:
             data = data.dropna(axis=0, how = 'any', subset = primaryKey)
         return data
+    def mkdir(self, path):
+        import os
+        
+        path=path.strip()
+        path=path.rstrip("\\")
+        isExist=os.path.exists(path)
+        if not isExist:
+            os.mkdir(path)
+            return True
+        else:
+            return False
+        
 
     def saveToMongo(self, data, dbName, tableName):
         """saving data to mongodb"""
@@ -198,7 +211,8 @@ class WindCollector(BaseDayCollector):
     def saveToLocal(self, data,secId):
         """saving data to mysql"""        
         filefolder=self.localfolder+secId+'\\'
-        filepath=self.localfolder+secId+'.csv'
+        self.mkdir(filefolder)
+        filepath=filefolder+secId+'.csv'
         fieldnames = ['pre_close','open','high','low','close','volume','amt','dealnum','TIME','secID','wind_code']
         csv_file = open(filepath, 'wb') 
         data.to_csv(filepath)
