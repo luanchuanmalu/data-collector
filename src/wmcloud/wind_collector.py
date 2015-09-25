@@ -68,8 +68,8 @@ class WindCollector(BaseDayCollector):
         # initialize wind client connection and database connnection
         self.windClient = WindClient
         self.windClient.start()
-        self.mongoClient = MongoClient(**self.mongoSetting)
-        self.mysqlClient  = MySQLdb.connect(**self.mysqlSetting)
+        #self.mongoClient = MongoClient(**self.mongoSetting)
+        #self.mysqlClient  = MySQLdb.connect(**self.mysqlSetting)
 
     def __del__( self ):
         if self.windClient is not None:
@@ -142,14 +142,14 @@ class WindCollector(BaseDayCollector):
                 return
             data.columns = result.Fields
             #特殊逻辑，万德api wsd函数返回的Data没有日期也没有股票代号，需要自己引入
-            if tablename == "marketDay":
+            if tablename == "marketDay" or tablename == "marketMin":
                 arr=np.array(result.Times)                
                 data = data.assign(**{'TIME': arr[data.index]})
                 data = data.assign(**{'secID':result.Codes[0]})
                 data = data.assign(**{'wind_code':result.Codes[0].split('.')[0]})
             data = self.__FilterData(data, primaryKey)
             if not data.empty and saveToDB:
-                self.saveToLocal(data, secID)
+                self.saveToLocal(data, secID,tablename)
         else:
             errorMessage = 'WindApiError: result code = %d, result msg = %s, fun = %s' %(result.ErrorCode, str(result.Data), fun)
             raise WindApiError(errorMessage)
@@ -197,7 +197,6 @@ class WindCollector(BaseDayCollector):
         else:
             return False
         
-
     def saveToMongo(self, data, dbName, tableName):
         """saving data to mongodb"""
         db = self.mongoClient[dbName]
@@ -208,17 +207,18 @@ class WindCollector(BaseDayCollector):
         """saving data to mysql"""
         data.to_sql(tableName, self.mysqlClient, flavor = 'mysql', if_exists = 'append', index=None)
         
-    def saveToLocal(self, data,secId):
+    def saveToLocal(self, data,secId,tableName):
         """saving data to mysql"""        
-        filefolder=self.localfolder+secId+'\\'
-        self.mkdir(filefolder)
-        filepath=filefolder+secId+'.csv'
+        #filefolder=self.localfolder+secId+'\\'
+        self.mkdir(self.localfolder)
+        filepath=self.localfolder+secId+"."+tableName+'.csv'
         fieldnames = ['pre_close','open','high','low','close','volume','amt','dealnum','TIME','secID','wind_code']
         csv_file = open(filepath, 'wb') 
         data.to_csv(filepath)
+        print filepath
   
 
 if __name__ == "__main__":
     wind = WindCollector('./conf/wind.conf')
-    wind.updateData('20150901','')
+    wind.updateData('2015-09-01 09:30:00','2015-09-01 14:30:00')
 
