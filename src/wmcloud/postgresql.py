@@ -2,12 +2,28 @@
   
 import pg  
 
+import pandas as pd
+import pandas.io.sql as psql
+from sqlalchemy import create_engine, MetaData
+from msilib import schema
+
+
+
+def dataframe_postgre():
+    engine = create_engine(r'postgresql://keystone:keystone@192.168.93.139:5432/keystonedata')
+    meta = MetaData(engine,schema='public')
+    meta.reflect(engine,schema='public')
+    pdsql = psql.SQLDatabase(engine,meta=meta)
+    
+    df=pd.read_sql("SELECT * FROM user_tbl",con=engine)
+    pdsql.to_sql(df,'test', if_exists='append')
+
   
 def operate_postgre_tbl_product():  
       
     #�������ݿ�    
     try:  
-        pgdb_conn = pg.connect(dbname = 'keystonedata', host = '192.168.58.132', user = 'keystone', passwd = 'keystone')  
+        pgdb_conn = pg.connect(dbname = 'keystonedata', host = '192.168.93.139', user = 'keystone', passwd = 'keystone')  
     except Exception, e:
         print "connect failed"        
         return       
@@ -57,4 +73,9 @@ def operate_postgre_tbl_product():
 if __name__ == '__main__':   
          
     #�������ݿ�  
-    operate_postgre_tbl_product()  
+    #operate_postgre_tbl_product()  
+    dataframe_postgre()
+    
+    
+    
+    

@@ -17,6 +17,10 @@ import csv
 import sys
 import datetime
 from nt import mkdir
+import pg  
+import pandas.io.sql as pdsql
+from sqlalchemy import create_engine, MetaData
+from msilib import schema
 
 # block name in configure file
 MYSQL_SETTING = 'mysql'
@@ -57,6 +61,7 @@ class WindCollector(BaseDayCollector):
         self.windClient = None
         self.mongoClient = None
         self.mysqlClient = None
+        self.psqlKeystone = None
 
         # read configure
         self.configFile = configFile
@@ -95,6 +100,12 @@ class WindCollector(BaseDayCollector):
         
         # local setting
         self.localfolder = self.config.get(LOCAL_SETTING, 'localfolder')
+        
+        #
+        engine = create_engine(r'postgresql://keystone:keystone@192.168.93.139:5432/keystonedata')
+        meta = MetaData(engine,schema='public')
+        meta.reflect(engine,schema='public')
+        self.psqlKeystone = pdsql.SQLDatabase(engine,meta=meta)
 
     def reconnect(self):
         """reconnect"""
@@ -150,6 +161,7 @@ class WindCollector(BaseDayCollector):
             data = self.__FilterData(data, primaryKey)
             if not data.empty and saveToDB:
                 self.saveToLocal(data, secID,tablename)
+                self.saveToPostgresql(data, db, table)
         else:
             errorMessage = 'WindApiError: result code = %d, result msg = %s, fun = %s' %(result.ErrorCode, str(result.Data), fun)
             raise WindApiError(errorMessage)
@@ -210,12 +222,16 @@ class WindCollector(BaseDayCollector):
     def saveToLocal(self, data,secId,tableName):
         """saving data to mysql"""        
         #filefolder=self.localfolder+secId+'\\'
-        self.mkdir(self.localfolder)
-        filepath=self.localfolder+secId+"."+tableName+'.csv'
+        datafolder = self.mkdir(self.localfolder+tableName)
+        filepath=self.localfolder+tableName+'\\'+secId+"."+tableName+'.csv'
         fieldnames = ['pre_close','open','high','low','close','volume','amt','dealnum','TIME','secID','wind_code']
         csv_file = open(filepath, 'wb') 
         data.to_csv(filepath)
-        print filepath
+        print filepath 
+    
+    def saveToPostgresql(self,data, dbName, tableName):
+        #df=pd.read_sql("SELECT * FROM user_tbl",con=engine)
+        self.psqlKeystone.to_sql(data,tableName, if_exists='append')   
   
 
 if __name__ == "__main__":
