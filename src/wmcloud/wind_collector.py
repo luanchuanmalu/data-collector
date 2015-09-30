@@ -114,11 +114,25 @@ class WindCollector(BaseDayCollector):
             self.windClient = None
         self.windClient = WindClient
 
+    def updateMarketData(self, beginDate, endDate, updateList = None, marketType="Day"):
+        """update wind data"""
+        failList = []
+        if updateList is None:
+            #secIDs = self.__GetSecIDs()
+            #secIDs = ['A.DCE','M.DCE']
+            secIDs = ['000001.SZ','600200.SH']
+            updateList = itertools.product(self.tableList, secIDs, [beginDate],[endDate],['dummy'])
+        if marketType=="Day":
+            self.updateData(beginDate, endDate, updateList)
+        elif marketType=="Minute":
+            self.updateData(beginDate, endDate, updateList)
+        else:
+            print "marketType not allowed"
+    
     def updateData(self, beginDate, endDate, updateList = None):
         """update wind data"""
         failList = []
         if updateList is None:
-            secIDs = self.__GetSecIDs()
             updateList = itertools.product(self.tableList, secIDs, [beginDate],[endDate],['dummy'])
         for tablename, secID, _beginDate, _endDate, _ in updateList:
             try:
@@ -153,15 +167,16 @@ class WindCollector(BaseDayCollector):
                 return
             data.columns = result.Fields
             #特殊逻辑，万德api wsd函数返回的Data没有日期也没有股票代号，需要自己引入
-            if tablename == "marketDay" or tablename == "marketMin":
+            if "Market" in tablename:
                 arr=np.array(result.Times)                
-                data = data.assign(**{'TIME': arr[data.index]})
-                data = data.assign(**{'secID':result.Codes[0]})
-                data = data.assign(**{'wind_code':result.Codes[0].split('.')[0]})
+                data = data.assign(**{'StockId':result.Codes[0]})
+                data = data.assign(**{'MarketTime': arr[data.index]})
+                data = data.assign(**{'WindCode':result.Codes[0].split('.')[0]})
             data = self.__FilterData(data, primaryKey)
             if not data.empty and saveToDB:
-                self.saveToLocal(data, secID,tablename)
                 self.saveToPostgresql(data, db, table)
+                self.saveToLocal(data, secID,tablename)
+                
         else:
             errorMessage = 'WindApiError: result code = %d, result msg = %s, fun = %s' %(result.ErrorCode, str(result.Data), fun)
             raise WindApiError(errorMessage)
@@ -224,17 +239,17 @@ class WindCollector(BaseDayCollector):
         #filefolder=self.localfolder+secId+'\\'
         datafolder = self.mkdir(self.localfolder+tableName)
         filepath=self.localfolder+tableName+'\\'+secId+"."+tableName+'.csv'
-        fieldnames = ['pre_close','open','high','low','close','volume','amt','dealnum','TIME','secID','wind_code']
+        fieldnames = ['pre_close','open','high','low','close','volume','amt','chg','pct_chg','oi','dealnum','adjfactor','MarketTime','StockId','WindCode']
         csv_file = open(filepath, 'wb') 
         data.to_csv(filepath)
         print filepath 
     
     def saveToPostgresql(self,data, dbName, tableName):
         #df=pd.read_sql("SELECT * FROM user_tbl",con=engine)
-        self.psqlKeystone.to_sql(data,tableName, if_exists='append')   
+        self.psqlKeystone.to_sql(data,tableName, if_exists='append',index=False)   
   
 
 if __name__ == "__main__":
     wind = WindCollector('./conf/wind.conf')
-    wind.updateData('2015-09-01 09:30:00','2015-09-01 14:30:00')
+    wind.updateMarketData('2015-01-01 09:30:00','2015-04-10 15:00:00')
 
