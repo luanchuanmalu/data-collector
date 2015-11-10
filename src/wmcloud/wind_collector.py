@@ -8,7 +8,6 @@ import pandas as pd
 import random
 from time import sleep
 from base_collector import *
-import MySQLdb
 import json
 import itertools
 from WindPy import w as WindClient
@@ -16,14 +15,13 @@ import numpy as np
 import csv
 import sys
 import datetime
-from nt import mkdir
-import pg  
+from nt import mkdir 
 import pandas.io.sql as pdsql
 from sqlalchemy import create_engine, MetaData
 from msilib import schema
 
 # block name in configure file
-MYSQL_SETTING = 'mysql'
+#MYSQL_SETTING = 'mysql'
 MONGO_SETTING = 'mongo'
 LOCAL_SETTING = 'local'
 SECIDS_SETTING = 'secIDs'
@@ -60,8 +58,8 @@ class WindCollector(BaseDayCollector):
         # instance variable used by JYCollector
         self.windClient = None
         self.mongoClient = None
-        self.mysqlClient = None
-        self.psqlKeystone = None
+        #self.mysqlClient = None
+        #self.psqlKeystone = None
 
         # read configure
         self.configFile = configFile
@@ -87,9 +85,9 @@ class WindCollector(BaseDayCollector):
         self.tableList = [x.strip() for x in tableString.split(',')]
 
         # mysql setting
-        self.mysqlSetting = dict(self.config.items(MYSQL_SETTING))
-        if self.mysqlSetting.has_key('port'):
-            self.mysqlSetting['port'] = int(self.mysqlSetting['port'])
+        #self.mysqlSetting = dict(self.config.items(MYSQL_SETTING))
+        #if self.mysqlSetting.has_key('port'):
+            #self.mysqlSetting['port'] = int(self.mysqlSetting['port'])
 
         # mongo setting
         mongoSetting = dict(self.config.items(MONGO_SETTING))
@@ -102,10 +100,10 @@ class WindCollector(BaseDayCollector):
         self.localfolder = self.config.get(LOCAL_SETTING, 'localfolder')
         
         #
-        engine = create_engine(r'postgresql://keystone:keystone@192.168.93.139:5432/keystonedata')
-        meta = MetaData(engine,schema='public')
-        meta.reflect(engine,schema='public')
-        self.psqlKeystone = pdsql.SQLDatabase(engine,meta=meta)
+        #engine = create_engine(r'postgresql://keystone:keystone@192.168.93.139:5432/keystonedata')
+        #meta = MetaData(engine,schema='public')
+        #meta.reflect(engine,schema='public')
+        #self.psqlKeystone = pdsql.SQLDatabase(engine,meta=meta)
 
     def reconnect(self):
         """reconnect"""
@@ -117,10 +115,13 @@ class WindCollector(BaseDayCollector):
     def updateMarketData(self, beginDate, endDate, updateList = None, marketType="Day"):
         """update wind data"""
         failList = []
+        #secIDs = self.__GetSecIDs()
+        #secIDs=pd.Series(secIDs)
+        #secIDs.to_csv('D:/Wind/data/secIds.csv')
         if updateList is None:
-            #secIDs = self.__GetSecIDs()
+            secIDs = self.__GetSecIDs()
             #secIDs = ['A.DCE','M.DCE']
-            secIDs = ['000001.SZ','600200.SH']
+            #secIDs = ['000001.SZ','600200.SH']
             updateList = itertools.product(self.tableList, secIDs, [beginDate],[endDate],['dummy'])
         if marketType=="Day":
             self.updateData(beginDate, endDate, updateList)
@@ -174,15 +175,18 @@ class WindCollector(BaseDayCollector):
                 data = data.assign(**{'WindCode':result.Codes[0].split('.')[0]})
             data = self.__FilterData(data, primaryKey)
             if not data.empty and saveToDB:
-                self.saveToPostgresql(data, db, table)
+                #self.saveToPostgresql(data, db, table)
                 self.saveToLocal(data, secID,tablename)
                 
         else:
             errorMessage = 'WindApiError: result code = %d, result msg = %s, fun = %s' %(result.ErrorCode, str(result.Data), fun)
             raise WindApiError(errorMessage)
 
-    def __GetSecIDs(self):
+    def __GetSecIDs(self,save=False):
         """获取所有股票代码"""
+        #data=pd.read_csv('D:/Wind/data/secIds.csv')
+        #data1 = pd.np.array(data)
+        #return data1
         fun = "result = self.windClient." + self.secIDsFun
         print fun
         exec(fun)
@@ -239,7 +243,7 @@ class WindCollector(BaseDayCollector):
         #filefolder=self.localfolder+secId+'\\'
         datafolder = self.mkdir(self.localfolder+tableName)
         filepath=self.localfolder+tableName+'\\'+secId+"."+tableName+'.csv'
-        fieldnames = ['pre_close','open','high','low','close','volume','amt','chg','pct_chg','oi','dealnum','adjfactor','MarketTime','StockId','WindCode']
+        fieldnames = ['pre_close','open','high','low','close','volume','pb','chg','pct_chg','pe','dealnum','adjfactor','MarketTime','StockId','WindCode']
         csv_file = open(filepath, 'wb') 
         data.to_csv(filepath)
         print filepath 
